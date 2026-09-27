@@ -361,9 +361,21 @@ async function redactScreenshot(
   c.width = bitmap.width;
   c.height = bitmap.height;
 
-  const ctx = c.getContext("2d");
+  const ctx = c.getContext("2d", {
+    willReadFrequently: true
+  });
 
+  // Draw original screenshot.
   ctx.drawImage(bitmap, 0, 0);
+
+  // Keep the original pixels for local verification.
+  const originalPixels =
+    ctx.getImageData(
+      0,
+      0,
+      bitmap.width,
+      bitmap.height
+    );
 
   ctx.fillStyle = "#000";
 
@@ -375,16 +387,138 @@ async function redactScreenshot(
     bitmap.height /
     Math.max(1, viewportH);
 
+  const redactionRects = [];
+
   for (const f of piiBoxes) {
     const b = f.box;
 
-    ctx.fillRect(
-      b.x * scaleX,
-      b.y * scaleY,
-      b.width * scaleX,
-      b.height * scaleY
+    const x = Math.max(
+      0,
+      Math.floor(b.x * scaleX)
     );
+
+    const y = Math.max(
+      0,
+      Math.floor(b.y * scaleY)
+    );
+
+    const width = Math.max(
+      1,
+      Math.ceil(b.width * scaleX)
+    );
+
+    const height = Math.max(
+      1,
+      Math.ceil(b.height * scaleY)
+    );
+
+    const right = Math.min(
+      bitmap.width,
+      x + width
+    );
+
+    const bottom = Math.min(
+      bitmap.height,
+      y + height
+    );
+
+    if (right <= x || bottom <= y) {
+      continue;
+    }
+
+    ctx.fillRect(
+      x,
+      y,
+      right - x,
+      bottom - y
+    );
+
+    redactionRects.push({
+      x,
+      y,
+      width: right - x,
+      height: bottom - y
+    });
   }
+
+  // Read the screenshot AFTER redaction.
+  const redactedPixels =
+    ctx.getImageData(
+      0,
+      0,
+      bitmap.width,
+      bitmap.height
+    );
+
+  // ------------------------------------------------------------
+  // LOCAL REDACTION VERIFICATION
+  // ------------------------------------------------------------
+
+  let changedPixels = 0;
+  let checkedPixels = 0;
+
+  for (const rect of redactionRects) {
+    const startX = rect.x;
+    const endX =
+      Math.min(
+        bitmap.width,
+        rect.x + rect.width
+      );
+
+    const startY = rect.y;
+    const endY =
+      Math.min(
+        bitmap.height,
+        rect.y + rect.height
+      );
+
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const index =
+          (y * bitmap.width + x) * 4;
+
+        const originalR =
+          originalPixels.data[index];
+
+        const originalG =
+          originalPixels.data[index + 1];
+
+        const originalB =
+          originalPixels.data[index + 2];
+
+        const redactedR =
+          redactedPixels.data[index];
+
+        const redactedG =
+          redactedPixels.data[index + 1];
+
+        const redactedB =
+          redactedPixels.data[index + 2];
+
+        checkedPixels++;
+
+        if (
+          originalR !== redactedR ||
+          originalG !== redactedG ||
+          originalB !== redactedB
+        ) {
+          changedPixels++;
+        }
+      }
+    }
+  }
+
+  const verificationPassed =
+    piiBoxes.length === 0 ||
+    (
+      redactionRects.length > 0 &&
+      checkedPixels > 0 &&
+      changedPixels > 0
+    );
+
+  // ------------------------------------------------------------
+  // EXPORT SANITIZED IMAGE
+  // ------------------------------------------------------------
 
   let out =
     c.toDataURL(
@@ -400,7 +534,16 @@ async function redactScreenshot(
       );
   }
 
-  return out;
+  return {
+    dataUrl: out,
+    verification: {
+      passed: verificationPassed,
+      boxes_requested: piiBoxes.length,
+      boxes_redacted: redactionRects.length,
+      pixels_checked: checkedPixels,
+      pixels_changed: changedPixels
+    }
+  };
 }
 
 /* =========================
@@ -483,7 +626,7 @@ async function health() {
       await fetch(
         ($("backend").value ||
           "http://localhost:8000") +
-          "/health"
+        "/health"
       );
 
     const j = await r.json();
@@ -709,7 +852,7 @@ async function runAgentStep(
     await fetch(
       ($("backend").value ||
         "http://localhost:8000") +
-        "/api/v1/plan",
+      "/api/v1/plan",
       {
         method: "POST",
 
@@ -746,7 +889,7 @@ async function runAgentStep(
   setStage(
     "s4",
     j.planner?.toUpperCase() ||
-      "PLANNED",
+    "PLANNED",
     "ok"
   );
 
@@ -1012,10 +1155,83 @@ function findSubmitButton(snapshot, executedTargets) {
   }) || null;
 }
 const executedTargets = new Set();
+function verifyNoRawPIIInPayload(payload) {
+  const strings = [];
+
+  function collectStrings(value, path = "") {
+    if (typeof value === "string") {
+      strings.push({ path, value });
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        collectStrings(item, `${path}[${index}]`);
+      });
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      Object.entries(value).forEach(([key, val]) => {
+        collectStrings(
+          val,
+          path ? `${path}.${key}` : key
+        );
+      });
+    }
+  }
+
+  collectStrings(payload);
+
+  const patterns = [
+    {
+      type: "EMAIL",
+      regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i
+    },
+    {
+      type: "PHONE",
+      regex: /\b(?:\+91[\s-]?)?[6-9]\d{9}\b/
+    },
+    {
+      type: "AADHAAR",
+      regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/
+    },
+    {
+      type: "PAN",
+      regex: /\b[A-Z]{5}\d{4}[A-Z]\b/i
+    },
+    {
+      type: "IFSC",
+      regex: /\b[A-Z]{4}0[A-Z0-9]{6}\b/i
+    },
+    {
+      type: "UPI",
+      regex: /\b[\w.-]+@[\w.-]+\b/
+    }
+  ];
+
+  const leaks = [];
+
+  for (const item of strings) {
+    for (const pattern of patterns) {
+      if (pattern.regex.test(item.value)) {
+        leaks.push({
+          type: pattern.type,
+          path: item.path
+        });
+      }
+    }
+  }
+
+  return {
+    passed: leaks.length === 0,
+    leaks
+  };
+}
 async function run() {
   const t = await activeTab();
 
-  
+
   const MAX_STEPS = 10;
 
   for (let step = 1; step <= MAX_STEPS; step++) {
@@ -1066,14 +1282,29 @@ async function run() {
     const piiBoxes =
       snap.snapshot.piiBoxes || [];
 
-    const redacted = await redactScreenshot(
-      shot,
-      piiBoxes,
-      snap.snapshot.viewport_width,
-      snap.snapshot.viewport_height
-    );
+    const redactionResult =
+      await redactScreenshot(
+        shot,
+        piiBoxes,
+        snap.snapshot.viewport_width,
+        snap.snapshot.viewport_height
+      );
+
+    const redacted =
+      redactionResult.dataUrl;
+
 
     $("preview").src = redacted;
+    if (!redactionResult.verification.passed) {
+      console.error(
+        "NETRA BLOCKED REQUEST: Screenshot redaction could not be verified.",
+        redactionResult.verification
+      );
+
+      throw new Error(
+        "Privacy gate blocked request: screenshot redaction verification failed."
+      );
+    }
     $("preview").style.display = "block";
 
     $("piiCount").textContent =
@@ -1144,9 +1375,17 @@ async function run() {
           ),
 
         data_base64:
-          redactedBase64
-      },
+          redactedBase64,
 
+        redaction_verified:
+          redactionResult.verification.passed,
+
+        redaction_pixels_changed:
+          redactionResult.verification.pixels_changed,
+
+        redaction_pixels_checked:
+          redactionResult.verification.pixels_checked
+      },
       pii: {
         redaction_count:
           piiBoxes.length,
@@ -1160,7 +1399,7 @@ async function run() {
 
         raw_values_sent: false,
         verified_local: true,
-        leakage_check_passed: true
+        leakage_check_passed: false
       },
 
       perception: {
@@ -1174,9 +1413,32 @@ async function run() {
     };
 
     // -----------------------------------------
+    // LOCAL PRIVACY LEAKAGE CHECK
+    // -----------------------------------------
+
+    const leakageCheck = verifyNoRawPIIInPayload(payload);
+
+    payload.pii.leakage_check_passed =
+      leakageCheck.passed;
+
+    if (!leakageCheck.passed) {
+      console.error(
+        "NETRA BLOCKED REQUEST: Raw PII detected",
+        leakageCheck.leaks
+      );
+
+      throw new Error(
+        "Privacy gate blocked request: " +
+        leakageCheck.leaks
+          .map(x => `${x.type} at ${x.path}`)
+          .join(", ")
+      );
+    }
+
+    // -----------------------------------------
     // 6. CHECK REMAINING PROFILE FIELDS
     // -----------------------------------------
-       // -----------------------------------------
+    // -----------------------------------------
     // 6. CHECK REMAINING PROFILE FIELDS
     // -----------------------------------------
     const remaining =
@@ -1202,43 +1464,43 @@ async function run() {
       // WAIT FOR USER TO ENTER OPTIONAL COMMENT
       // -----------------------------------------
 
-    const commentNode =
-  (snap.snapshot.nodes || []).find(node => {
+      const commentNode =
+        (snap.snapshot.nodes || []).find(node => {
 
-    if (node.role !== "textbox") {
-      return false;
-    }
+          if (node.role !== "textbox") {
+            return false;
+          }
 
-    if (!node.value_present) {
-      return false;
-    }
+          if (!node.value_present) {
+            return false;
+          }
 
-    if (/^\[[A-Z_]+_\d+\]$/.test(
-      String(node.text || "")
-    )) {
-      return false;
-    }
+          if (/^\[[A-Z_]+_\d+\]$/.test(
+            String(node.text || "")
+          )) {
+            return false;
+          }
 
-    const hint = [
-      node.name,
-      node.id,
-      node.type
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
+          const hint = [
+            node.name,
+            node.id,
+            node.type
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
 
-    return (
-      /\bcomment\b/.test(hint) ||
-      /\bcomments\b/.test(hint) ||
-      /\bmessage\b/.test(hint) ||
-      /\bremarks\b/.test(hint) ||
-      /\bdescription\b/.test(hint)
-    );
-  });
+          return (
+            /\bcomment\b/.test(hint) ||
+            /\bcomments\b/.test(hint) ||
+            /\bmessage\b/.test(hint) ||
+            /\bremarks\b/.test(hint) ||
+            /\bdescription\b/.test(hint)
+          );
+        });
 
-const commentValue =
-  !!commentNode;
+      const commentValue =
+        !!commentNode;
 
       /*
        * First run:
@@ -1409,7 +1671,7 @@ const commentValue =
       return;
     }
 
-    
+
     // -----------------------------------------
     // 7. BACKEND PLANNING
     // -----------------------------------------
@@ -1456,7 +1718,7 @@ const commentValue =
     setStage(
       "s4",
       j.planner?.toUpperCase() ||
-        "PLANNED",
+      "PLANNED",
       "ok"
     );
 

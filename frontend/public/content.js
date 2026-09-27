@@ -66,6 +66,10 @@
       return "PAN";
     }
 
+    if (/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(value.trim()) || /ifsc|bank.*code/i.test(hint)) {
+      return "IFSC";
+    }
+
     if (
       /^[\w.-]+@[\w.-]+$/.test(s) ||
       h.includes("upi")
