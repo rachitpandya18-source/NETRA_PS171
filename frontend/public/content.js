@@ -30,6 +30,13 @@
     if (!s) return null;
 
     if (
+      h.includes("password") ||
+      h.includes("passwd")
+    ) {
+      return "PASSWORD";
+    }
+
+    if (
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ||
       h.includes("email")
     ) {
@@ -202,9 +209,9 @@
 
     const label = id
       ? document
-          .querySelector(`label[for="${CSS.escape(id)}"]`)
-          ?.innerText
-          ?.trim()
+        .querySelector(`label[for="${CSS.escape(id)}"]`)
+        ?.innerText
+        ?.trim()
       : "";
 
     return (
@@ -385,39 +392,39 @@
         }
       }
 
-  nodes.push({
-  id: ref,
-  role: roleFor(el),
-  name: safeName(el),
-  text,
+      nodes.push({
+        id: ref,
+        role: roleFor(el),
+        name: safeName(el),
+        text,
 
-  value:
-    el instanceof HTMLInputElement
-      ? (el.value || "")
-      : "",
+        value:
+          el instanceof HTMLInputElement
+            ? (el.value || "")
+            : "",
 
-  value_present:
-    (
-      el instanceof HTMLInputElement ||
-      el instanceof HTMLTextAreaElement
-    )
-      ? !!String(el.value || "").trim()
-      : false,
+        value_present:
+          (
+            el instanceof HTMLInputElement ||
+            el instanceof HTMLTextAreaElement
+          )
+            ? !!String(el.value || "").trim()
+            : false,
 
-  type: el.getAttribute("type") || "",
+        type: el.getAttribute("type") || "",
 
-  bbox: [
-    rect.x,
-    rect.y,
-    rect.x + rect.width,
-    rect.y + rect.height
-  ],
+        bbox: [
+          rect.x,
+          rect.y,
+          rect.x + rect.width,
+          rect.y + rect.height
+        ],
 
-  disabled: !!el.disabled,
-  visible: true
-});
+        disabled: !!el.disabled,
+        visible: true
+      });
 
-el.dataset.netraRef = ref;
+      el.dataset.netraRef = ref;
     });
 
     return {
@@ -467,8 +474,8 @@ el.dataset.netraRef = ref;
   function execute(action) {
     const el = action?.target_id
       ? document.querySelector(
-          `[data-netra-ref="${CSS.escape(action.target_id)}"]`
-        )
+        `[data-netra-ref="${CSS.escape(action.target_id)}"]`
+      )
       : null;
 
     if (!el) {
@@ -482,111 +489,111 @@ el.dataset.netraRef = ref;
      * CLICK
      */
     if (action.action_type === "CLICK") {
-  if (el.disabled) {
-    return {
-      ok: false,
-      error: "Target element is disabled"
-    };
-  }
-
-  const beforeUrl = location.href;
-
-  let clickSeen = false;
-  let submitSeen = false;
-
-  const onClick = () => {
-    clickSeen = true;
-  };
-
-  const onSubmit = () => {
-    submitSeen = true;
-  };
-
-  // Verify that the actual resolved DOM element
-  // receives the click event.
-  el.addEventListener(
-    "click",
-    onClick,
-    {
-      once: true,
-      capture: true
-    }
-  );
-
-  // If this element belongs to a form,
-  // verify whether the form actually receives submit.
-  const form = el.closest("form");
-
-  if (form) {
-    form.addEventListener(
-      "submit",
-      onSubmit,
-      {
-        once: true,
-        capture: true
+      if (el.disabled) {
+        return {
+          ok: false,
+          error: "Target element is disabled"
+        };
       }
-    );
-  }
 
-  // Actual DOM click.
-  el.click();
+      const beforeUrl = location.href;
 
-  // Remove temporary listeners.
-  el.removeEventListener(
-    "click",
-    onClick,
-    true
-  );
+      let clickSeen = false;
+      let submitSeen = false;
 
-  if (form) {
-    form.removeEventListener(
-      "submit",
-      onSubmit,
-      true
-    );
-  }
+      const onClick = () => {
+        clickSeen = true;
+      };
 
-  const urlChanged =
-    location.href !== beforeUrl;
+      const onSubmit = () => {
+        submitSeen = true;
+      };
 
-  return {
-    ok:
-      clickSeen ||
-      submitSeen ||
-      urlChanged,
+      // Verify that the actual resolved DOM element
+      // receives the click event.
+      el.addEventListener(
+        "click",
+        onClick,
+        {
+          once: true,
+          capture: true
+        }
+      );
 
-    clicked: clickSeen,
+      // If this element belongs to a form,
+      // verify whether the form actually receives submit.
+      const form = el.closest("form");
 
-    submitted: submitSeen,
+      if (form) {
+        form.addEventListener(
+          "submit",
+          onSubmit,
+          {
+            once: true,
+            capture: true
+          }
+        );
+      }
 
-    url_changed: urlChanged,
+      // Actual DOM click.
+      el.click();
 
-    target: {
-      tag: el.tagName,
-      type:
-        el.getAttribute("type") || "",
-      id:
-        el.getAttribute("id") || "",
-      name:
-        el.getAttribute("name") || "",
-      value:
-        el instanceof HTMLInputElement
-          ? (el.value || "")
-          : "",
-      text:
-        (
-          el.innerText ||
-          el.textContent ||
-          ""
-        )
-          .trim()
-          .slice(0, 120),
+      // Remove temporary listeners.
+      el.removeEventListener(
+        "click",
+        onClick,
+        true
+      );
 
-      netra_ref:
-        el.dataset.netraRef || ""
+      if (form) {
+        form.removeEventListener(
+          "submit",
+          onSubmit,
+          true
+        );
+      }
+
+      const urlChanged =
+        location.href !== beforeUrl;
+
+      return {
+        ok:
+          clickSeen ||
+          submitSeen ||
+          urlChanged,
+
+        clicked: clickSeen,
+
+        submitted: submitSeen,
+
+        url_changed: urlChanged,
+
+        target: {
+          tag: el.tagName,
+          type:
+            el.getAttribute("type") || "",
+          id:
+            el.getAttribute("id") || "",
+          name:
+            el.getAttribute("name") || "",
+          value:
+            el instanceof HTMLInputElement
+              ? (el.value || "")
+              : "",
+          text:
+            (
+              el.innerText ||
+              el.textContent ||
+              ""
+            )
+              .trim()
+              .slice(0, 120),
+
+          netra_ref:
+            el.dataset.netraRef || ""
+        }
+      };
     }
-  };
-}
 
     /*
      * TYPE
