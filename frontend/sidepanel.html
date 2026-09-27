@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>NETRA Command Center</title>
+  <style>
+    *{box-sizing:border-box} body{margin:0;background:#07111f;color:#e8f0ff;font:13px Inter,Segoe UI,Arial,sans-serif}
+    .app{padding:16px;max-width:620px;margin:auto}.brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#32d5ff,#726bff);display:grid;place-items:center;font-weight:900;color:#03101b}
+    h1{font-size:18px;margin:0}.muted{color:#8293ad;font-size:11px}.card{background:#0d1a2b;border:1px solid #1d3048;border-radius:14px;padding:13px;margin:10px 0}
+    label{display:block;color:#a8b9d0;font-size:11px;margin-bottom:6px}textarea,input{width:100%;background:#081321;color:#edf5ff;border:1px solid #29405e;border-radius:9px;padding:10px;outline:none}
+    button{border:0;border-radius:9px;padding:10px 12px;font-weight:700;cursor:pointer}.primary{background:#42d7ff;color:#04111c;width:100%;margin-top:8px}
+    .row{display:flex;gap:8px;align-items:center}.grow{flex:1}.pill{padding:4px 7px;border-radius:20px;background:#13263d;color:#9fb5d2;font-size:10px}
+    .ok{color:#63e6a7}.warn{color:#ffd166}.bad{color:#ff7188}.stage{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #172940}
+    .stage:last-child{border-bottom:0}.metric{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}.metric div{background:#091625;border-radius:9px;padding:9px}.metric b{display:block;font-size:16px}.metric span{font-size:9px;color:#8194ad}
+    pre{white-space:pre-wrap;word-break:break-word;font-size:10px;color:#9db1ca;max-height:180px;overflow:auto}.action{border-left:3px solid #42d7ff;padding-left:10px}
+    #preview{width:100%;max-height:220px;object-fit:contain;background:#050c14;border-radius:9px;display:none}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="brand"><div class="logo">N</div><div><h1>NETRA Command Center</h1><div class="muted">Privacy-First Browser Agent · Working Demo</div></div></div>
+
+  <div class="card">
+    <label>TASK INSTRUCTION</label>
+    <textarea id="instruction" rows="2">Fill the email field securely without exposing my personal information</textarea>
+    <div class="row" style="margin-top:8px"><input id="backend" value="http://localhost:8000" class="grow"><button id="health">Health</button></div>
+    <button id="run" class="primary">▶ PERCEIVE → REDACT → PLAN</button>
+  </div>
+
+  <div class="card">
+    <div class="stage"><span>Browser snapshot</span><span id="s1" class="pill">WAITING</span></div>
+    <div class="stage"><span>Local YOLO11n perception</span><span id="s2" class="pill">WAITING</span></div>
+    <div class="stage"><span>Local PII redaction</span><span id="s3" class="pill">WAITING</span></div>
+    <div class="stage"><span>Sanitized backend planning</span><span id="s4" class="pill">WAITING</span></div>
+    <div class="stage"><span>Local action execution</span><span id="s5" class="pill">WAITING</span></div>
+  </div>
+
+  <div class="card">
+    <div class="metric">
+      <div><b id="detCount">0</b><span>UI DETECTIONS</span></div>
+      <div><b id="piiCount">0</b><span>PII REDACTIONS</span></div>
+      <div><b id="latency">—</b><span>PLAN LATENCY</span></div>
+    </div>
+  </div>
+
+  <div class="card"><label>SANITIZED PAGE PREVIEW</label><img id="preview"><pre id="privacy">Raw PII sent: false</pre></div>
+
+  <div class="card"><label>PLANNER ACTION</label><div id="action" class="action">No action yet.</div></div>
+  <div class="card"><label>TRACE</label><pre id="trace">Ready.</pre></div>
+</div>
+<script type="module" src="/src/sidepanel.js"></script>
+</body>
+</html>

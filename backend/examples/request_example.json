@@ -1,0 +1,37 @@
+{
+  "instruction": "Find the Learn more link",
+  "page": {
+    "url": "https://example.com/",
+    "title": "Example Domain",
+    "nodes": [
+      {
+        "ref": "e0",
+        "role": "link",
+        "name": "Learn more",
+        "text": "Learn more",
+        "rect": {"x": 30, "y": 210, "width": 92, "height": 22},
+        "disabled": false,
+        "visible": true
+      }
+    ]
+  },
+  "screenshot": {
+    "redacted": true,
+    "mime_type": "image/png",
+    "data_base64": null
+  },
+  "pii": {
+    "redaction_count": 0,
+    "findings": [],
+    "raw_values_sent": false,
+    "verified_local": true,
+    "leakage_check_passed": true
+  },
+  "perception": {
+    "ui_detections": [],
+    "ocr_text_redacted": [],
+    "source": "local",
+    "model": "local-perception"
+  },
+  "execute_locally": false
+}

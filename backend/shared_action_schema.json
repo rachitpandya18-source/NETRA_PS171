@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NETRAAction",
+  "type": "object",
+  "required": ["type", "confidence"],
+  "properties": {
+    "type": {"enum": ["click", "type", "scroll", "navigate", "wait", "no_op"]},
+    "ref": {"type": ["string", "null"]},
+    "value": {"type": ["string", "null"]},
+    "value_ref": {"type": ["string", "null"]},
+    "direction": {"enum": ["up", "down", "left", "right", null]},
+    "amount": {"type": ["number", "null"]},
+    "url": {"type": ["string", "null"]},
+    "ms": {"type": ["integer", "null"]},
+    "reason": {"type": ["string", "null"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "additionalProperties": false
+}

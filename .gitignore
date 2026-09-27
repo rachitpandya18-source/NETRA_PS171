@@ -1,0 +1,20 @@
+﻿.venv/
+venv/
+env/
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+
+# ML training data
+ml/trained_package/NETRA_FINAL/yolo_dataset/
+
+# Training caches / generated outputs
+*.cache
+runs/
+wandb/
+
+# Build output
+frontend/dist/
